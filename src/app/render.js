@@ -23,7 +23,17 @@ export function renderApp(container) {
   const main = document.createElement('main');
   main.className = 'main-content';
 
-  if (!state.fileName) {
+  if (state.isProcessing) {
+    const loadingCard = document.createElement('div');
+    loadingCard.className = 'card';
+    loadingCard.style.padding = '3rem';
+    loadingCard.style.textAlign = 'center';
+    loadingCard.innerHTML = `
+      <div style="font-size:1.1rem; font-weight:600; margin-bottom:0.5rem;">Analyzing Tradebook...</div>
+      <div style="font-size:0.85rem; color:var(--text-muted);">Reading spreadsheet records and computing metrics locally.</div>
+    `;
+    main.appendChild(loadingCard);
+  } else if (!state.fileName || (!state.overallSummary && state.isMappingConfirmed)) {
     // Empty state / Upload prompt
     main.appendChild(renderEmptyState());
   } else {
@@ -130,15 +140,25 @@ function renderEmptyState() {
 
   // Attach file upload listeners
   const fileInput = dropzone.querySelector('#file-input');
-  dropzone.querySelector('#btn-browse-file').addEventListener('click', (e) => {
+  const browseBtn = dropzone.querySelector('#btn-browse-file');
+
+  browseBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     fileInput.click();
   });
-  dropzone.addEventListener('click', () => fileInput.click());
+
+  dropzone.addEventListener('click', (e) => {
+    if (e.target !== browseBtn && !browseBtn.contains(e.target)) {
+      fileInput.click();
+    }
+  });
 
   fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
-      window.dispatchEvent(new CustomEvent('file-selected', { detail: { file: e.target.files[0] } }));
+      const selectedFile = e.target.files[0];
+      // Reset input value so re-selecting same file works
+      e.target.value = '';
+      window.dispatchEvent(new CustomEvent('file-selected', { detail: { file: selectedFile } }));
     }
   });
 
@@ -285,15 +305,15 @@ function renderSummaryCards() {
   let hasOpenPositions = false;
 
   if (state.selectedDate === 'ALL') {
-    const o = state.overallSummary;
-    buyVal = o.totalBuyVal;
-    sellVal = o.totalSellVal;
-    netCash = o.netCashFlow;
-    buyCount = o.buyCount;
-    sellCount = o.sellCount;
-    instCount = o.instrumentCount;
-    realizedPnL = o.realizedPnL;
-    isPnLReliable = o.isPnLReliable;
+    const o = state.overallSummary || {};
+    buyVal = o.totalBuyVal || 0;
+    sellVal = o.totalSellVal || 0;
+    netCash = o.netCashFlow || 0;
+    buyCount = o.buyCount || 0;
+    sellCount = o.sellCount || 0;
+    instCount = o.instrumentCount || 0;
+    realizedPnL = o.realizedPnL ?? null;
+    isPnLReliable = !!o.isPnLReliable;
     hasOpenPositions = !o.allPositionsClosed;
   } else {
     const d = state.dailySummaries.find(item => item.tradeDate === state.selectedDate);
@@ -483,7 +503,6 @@ function renderStockTable() {
     { key: 'netCashFlow', label: 'Net Cash Flow', sortable: true, isNum: true },
     { key: 'realizedPnL', label: 'Realized P&L', sortable: true, isNum: true },
     { key: 'pnlStatus', label: 'Status', sortable: false },
-    { key: 'actions', label: 'Action', sortable: false },
   ];
 
   const thead = document.createElement('thead');
@@ -516,6 +535,11 @@ function renderStockTable() {
   const tbody = document.createElement('tbody');
   filtered.forEach(s => {
     const tr = document.createElement('tr');
+    tr.className = 'expandable-row';
+    const isExpanded = state.expandedRows.has(s.id);
+    if (isExpanded) {
+      tr.classList.add('is-expanded');
+    }
 
     const netCashClass = s.netCashFlow > 0 ? 'pnl-pos' : (s.netCashFlow < 0 ? 'pnl-neg' : 'pnl-zero');
     let pnlDisplay = '—';
@@ -534,8 +558,10 @@ function renderStockTable() {
       statusBadge = `<span class="badge badge-danger" title="${escapeHtml(s.pnlNotice)}">Prior Holding</span>`;
     }
 
+    const caret = isExpanded ? '▾' : '▸';
+
     tr.innerHTML = `
-      <td>${s.tradeDate}</td>
+      <td><span class="row-expand-icon">${caret}</span> ${s.tradeDate}</td>
       <td><strong>${s.symbol}</strong></td>
       <td><span class="badge badge-neutral">${s.exchange}</span></td>
       <td class="text-num">${s.buyCount}</td>
@@ -550,21 +576,68 @@ function renderStockTable() {
       <td class="text-num ${netCashClass}">${formatINR(s.netCashFlow, true)}</td>
       <td class="text-num ${pnlClass}">${pnlDisplay}</td>
       <td>${statusBadge}</td>
-      <td><button class="btn btn-secondary btn-sm btn-inspect-trades">Inspect</button></td>
     `;
 
-    tr.querySelector('.btn-inspect-trades').addEventListener('click', () => {
-      const associatedTrades = state.validTrades.filter(t => s.tradeIds.includes(t.id));
-      state.inspectedStock = {
-        date: s.tradeDate,
-        symbol: s.symbol,
-        summary: s,
-        trades: associatedTrades,
-      };
+    tr.addEventListener('click', () => {
+      if (state.expandedRows.has(s.id)) {
+        state.expandedRows.delete(s.id);
+      } else {
+        state.expandedRows.add(s.id);
+      }
       notify();
     });
 
     tbody.appendChild(tr);
+
+    // If expanded, render detail row
+    if (isExpanded) {
+      const associatedTrades = state.validTrades.filter(t => s.tradeIds.includes(t.id));
+      const detailTr = document.createElement('tr');
+      detailTr.className = 'detail-row';
+
+      const detailTd = document.createElement('td');
+      detailTd.colSpan = columns.length;
+
+      detailTd.innerHTML = `
+        <div class="inline-trade-details">
+          <div class="inline-details-header">
+            <span class="inline-details-title">Individual Executions for <strong>${s.symbol}</strong> on ${s.tradeDate} (${associatedTrades.length} trade${associatedTrades.length === 1 ? '' : 's'})</span>
+            <span class="inline-details-note">${escapeHtml(s.pnlNotice)}</span>
+          </div>
+          <table class="sub-data-table">
+            <thead>
+              <tr>
+                <th>Row #</th>
+                <th>Side</th>
+                <th class="text-num">Quantity</th>
+                <th class="text-num">Execution Price (₹)</th>
+                <th class="col-trade-val">Trade Value (₹)</th>
+                <th class="col-order-id">Order ID</th>
+                <th class="col-trade-id">Trade ID</th>
+                <th class="text-num">Charges</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${associatedTrades.map(t => `
+                <tr>
+                  <td>Row ${t.sourceRowNum}</td>
+                  <td><span class="badge ${t.side === 'BUY' ? 'badge-success' : 'badge-danger'}">${t.side}</span></td>
+                  <td class="text-num">${formatQuantity(t.quantity)}</td>
+                  <td class="text-num">${formatINR(t.price)}</td>
+                  <td class="col-trade-val">${formatINR(t.tradeValue)}</td>
+                  <td class="col-order-id">${t.orderId || '—'}</td>
+                  <td class="col-trade-id">${t.tradeId || '—'}</td>
+                  <td class="text-num">${t.charges ? formatINR(t.charges) : '₹0.00'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      detailTr.appendChild(detailTd);
+      tbody.appendChild(detailTr);
+    }
   });
 
   table.appendChild(tbody);

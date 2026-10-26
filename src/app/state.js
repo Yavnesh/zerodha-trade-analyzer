@@ -37,7 +37,8 @@ export const state = {
   sortColumn: 'tradeDate',
   sortDirection: 'asc', // 'asc' or 'desc'
 
-  // Modal inspection
+  // Modal / Accordion inspection
+  expandedRows: new Set(), // Set of stockSummary id strings
   inspectedStock: null, // { date, symbol, trades: [] }
   showHelpModal: false,
 };
@@ -77,6 +78,7 @@ export function resetState() {
   state.searchSymbol = '';
   state.sortColumn = 'tradeDate';
   state.sortDirection = 'asc';
+  state.expandedRows = new Set();
   state.inspectedStock = null;
   state.showHelpModal = false;
   notify();

@@ -221,8 +221,126 @@
   color: var(--text-main);
 }
 
-.data-table tr:hover td {
+.data-table tr.expandable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.data-table tr.expandable-row:hover td {
   background: var(--bg-hover);
+}
+
+.data-table tr.expandable-row.is-expanded td {
+  background: rgba(56, 189, 248, 0.08);
+  border-bottom-color: transparent;
+}
+
+.row-expand-icon {
+  display: inline-block;
+  width: 14px;
+  font-size: 0.8rem;
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+/* Detail row with distinct differentiating background */
+.data-table tr.detail-row td {
+  padding: 0;
+  background: #111722;
+  border-bottom: 2px solid var(--border-subtle);
+}
+
+.inline-trade-details {
+  padding: 1.25rem 1.5rem 1.5rem;
+  background: linear-gradient(180deg, rgba(20, 27, 38, 0.95) 0%, rgba(14, 19, 27, 0.98) 100%);
+  border-left: 3px solid var(--accent-blue);
+}
+
+.inline-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inline-details-title {
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.inline-details-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sub-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  table-layout: auto;
+}
+
+.sub-data-table th {
+  background: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.sub-data-table td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.sub-data-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.sub-data-table .col-trade-val {
+  text-align: right;
+  font-family: var(--font-mono);
+  padding-right: 1.5rem;
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
+.sub-data-table .col-order-id {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-left: 1.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sub-data-table .col-trade-id {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-left: 1rem;
+}
+
+.mono-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .text-num {

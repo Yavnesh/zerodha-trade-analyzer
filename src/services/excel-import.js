@@ -14,16 +14,18 @@ export async function parseExcelWorkbook(file) {
   }
 
   const validExtensions = ['.xlsx', '.xls'];
-  const fileName = file.name.toLowerCase();
+  const fileName = (file.name || '').toLowerCase();
   const hasValidExt = validExtensions.some(ext => fileName.endsWith(ext));
-  if (!hasValidExt) {
-    throw new Error(`Unsupported file extension for "${file.name}". Please upload a Zerodha tradebook (.xlsx or .xls).`);
-  }
-
+  
   // Read array buffer
   const buffer = await file.arrayBuffer();
   if (!buffer || buffer.byteLength === 0) {
     throw new Error('The uploaded file is empty (0 bytes).');
+  }
+
+  // If file doesn't have an explicit extension, verify that it is at least a valid Excel / zip file or attempt reading
+  if (!hasValidExt && fileName.includes('.')) {
+    throw new Error(`Unsupported file extension for "${file.name}". Please upload an Excel file (.xlsx or .xls).`);
   }
 
   let workbook;
@@ -65,11 +67,11 @@ export async function parseExcelWorkbook(file) {
       continue;
     }
 
-    // Locate header row: scan first 10 rows for common trade keywords
+    // Locate header row: scan first 50 rows for common trade keywords
     let headerRowIdx = -1;
     let bestHeaderMapping = null;
 
-    for (let r = 0; r < Math.min(10, rawMatrix.length); r++) {
+    for (let r = 0; r < Math.min(50, rawMatrix.length); r++) {
       const row = rawMatrix[r].map(c => String(c).trim());
       const mappingResult = autoDetectColumnMapping(row);
       if (mappingResult.confidence >= 0.5) {

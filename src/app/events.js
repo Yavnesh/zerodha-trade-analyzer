@@ -53,7 +53,10 @@ export function setupEventHandlers() {
       state.isProcessing = false;
       notify();
     } catch (err) {
+      console.error('[Zerodha Trade Analyzer] Error processing file:', err);
       state.isProcessing = false;
+      state.fileName = '';
+      state.fileSize = 0;
       alert(`Error processing file: ${err.message}`);
       notify();
     }

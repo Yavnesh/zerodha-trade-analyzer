@@ -1,0 +1,43 @@
+/* Zerodha Trade Analyzer - Design Tokens */
+:root {
+  --bg-primary: #0e131b;
+  --bg-secondary: #141b26;
+  --bg-surface: #1a2232;
+  --bg-surface-elevated: #212c3f;
+  --bg-hover: #263349;
+  
+  --border-subtle: #273449;
+  --border-focus: #3b82f6;
+
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  /* Semantics */
+  --pnl-positive: #10b981;
+  --pnl-positive-bg: rgba(16, 185, 129, 0.12);
+  --pnl-positive-border: rgba(16, 185, 129, 0.28);
+  
+  --pnl-negative: #f43f5e;
+  --pnl-negative-bg: rgba(244, 63, 94, 0.12);
+  --pnl-negative-border: rgba(244, 63, 94, 0.28);
+
+  --accent-blue: #38bdf8;
+  --accent-blue-bg: rgba(56, 189, 248, 0.12);
+  
+  --warning-amber: #f59e0b;
+  --warning-amber-bg: rgba(245, 158, 11, 0.12);
+  --warning-amber-border: rgba(245, 158, 11, 0.28);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.45);
+}

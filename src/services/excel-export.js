@@ -1,0 +1,209 @@
+/**
+ * Multi-Sheet Excel Export Service using SheetJS
+ * Generates:
+ * Sheet 1: Stock-wise Summary
+ * Sheet 2: Daily Summary
+ * Sheet 3: Individual Trades
+ * Sheet 4: Validation Report
+ * Sheet 5: Methodology
+ */
+
+import * as XLSX from 'xlsx';
+import { formatINR } from '../utils/currency.js';
+
+export function generateExportWorkbook({
+  stockSummaries,
+  dailySummaries,
+  validTrades,
+  invalidRecords = [],
+  warnings = [],
+  metadata = {},
+}) {
+  const wb = XLSX.utils.book_new();
+
+  // 1. Stock-wise Summary Sheet
+  const stockSheetData = [
+    [
+      'Trade Date',
+      'Trading Symbol',
+      'Exchange',
+      'Segment',
+      'Buy Executions',
+      'Sell Executions',
+      'Total Buy Qty',
+      'Total Sell Qty',
+      'Total Buy Value (₹)',
+      'Total Sell Value (₹)',
+      'Avg Buy Price (₹)',
+      'Avg Sell Price (₹)',
+      'Net Qty',
+      'Net Cash Flow (₹)',
+      'Realized P&L (₹)',
+      'Position Status',
+      'Notes',
+    ],
+  ];
+
+  for (const s of stockSummaries) {
+    stockSheetData.push([
+      s.tradeDate,
+      s.symbol,
+      s.exchange || '',
+      s.segment || '',
+      s.buyCount,
+      s.sellCount,
+      s.totalBuyQty,
+      s.totalSellQty,
+      s.totalBuyVal,
+      s.totalSellVal,
+      s.avgBuyPrice,
+      s.avgSellPrice,
+      s.netQty,
+      s.netCashFlow,
+      s.realizedPnL !== null ? s.realizedPnL : 'N/A (Open Position)',
+      s.pnlStatus,
+      s.pnlNotice,
+    ]);
+  }
+  const wsStock = XLSX.utils.aoa_to_sheet(stockSheetData);
+  // Auto-width
+  wsStock['!cols'] = [
+    { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
+    { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 40 },
+  ];
+  XLSX.utils.book_append_sheet(wb, wsStock, 'Stock-wise Summary');
+
+  // 2. Daily Summary Sheet
+  const dailySheetData = [
+    [
+      'Trade Date',
+      'Distinct Instruments',
+      'Buy Executions',
+      'Sell Executions',
+      'Total Buy Qty',
+      'Total Sell Qty',
+      'Total Buy Value (₹)',
+      'Total Sell Value (₹)',
+      'Net Cash Flow (₹)',
+      'Realized P&L (₹)',
+      'Items Requiring Attention',
+      'Status',
+    ],
+  ];
+
+  for (const d of dailySummaries) {
+    dailySheetData.push([
+      d.tradeDate,
+      d.instrumentCount,
+      d.buyCount,
+      d.sellCount,
+      d.totalBuyQty,
+      d.totalSellQty,
+      d.totalBuyVal,
+      d.totalSellVal,
+      d.netCashFlow,
+      d.realizedPnL !== null ? d.realizedPnL : 'N/A (Has Open Positions)',
+      d.attentionCount,
+      d.hasOpenPositions ? 'Contains Open/Overnight Positions' : 'All Positions Squared Off',
+    ]);
+  }
+  const wsDaily = XLSX.utils.aoa_to_sheet(dailySheetData);
+  wsDaily['!cols'] = [
+    { wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
+    { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
+    { wch: 18 }, { wch: 20 }, { wch: 24 }, { wch: 30 },
+  ];
+  XLSX.utils.book_append_sheet(wb, wsDaily, 'Daily Summary');
+
+  // 3. Individual Trades Sheet
+  const tradesSheetData = [
+    [
+      'Source Row #',
+      'Trade Date',
+      'Symbol',
+      'Exchange',
+      'Segment',
+      'Side',
+      'Quantity',
+      'Execution Price (₹)',
+      'Trade Value (₹)',
+      'Order ID',
+      'Trade ID',
+      'Charges (₹)',
+    ],
+  ];
+
+  for (const t of validTrades) {
+    tradesSheetData.push([
+      t.sourceRowNum,
+      t.tradeDate,
+      t.symbol,
+      t.exchange,
+      t.segment,
+      t.side,
+      t.quantity,
+      t.price,
+      t.tradeValue,
+      t.orderId,
+      t.tradeId,
+      t.charges,
+    ]);
+  }
+  const wsTrades = XLSX.utils.aoa_to_sheet(tradesSheetData);
+  wsTrades['!cols'] = [
+    { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
+    { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
+    { wch: 20 }, { wch: 20 }, { wch: 14 },
+  ];
+  XLSX.utils.book_append_sheet(wb, wsTrades, 'Individual Trades');
+
+  // 4. Validation Report Sheet
+  const validationSheetData = [
+    ['Category', 'Source Row #', 'Details / Message'],
+  ];
+
+  if (invalidRecords.length === 0 && warnings.length === 0) {
+    validationSheetData.push(['SUCCESS', '-', 'All rows were validated and imported successfully without errors or warnings.']);
+  } else {
+    for (const inv of invalidRecords) {
+      validationSheetData.push(['INVALID_ROW', inv.sourceRowNum, inv.reasons.join('; ')]);
+    }
+    for (const w of warnings) {
+      validationSheetData.push([w.type, w.sourceRowNum || '-', w.message]);
+    }
+  }
+  const wsValidation = XLSX.utils.aoa_to_sheet(validationSheetData);
+  wsValidation['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, wsValidation, 'Validation Report');
+
+  // 5. Methodology Sheet
+  const methodologyData = [
+    ['Methodology & Accounting Disclaimers', ''],
+    ['Generated By', 'Zerodha Trade Analyzer (Client-side in browser)'],
+    ['Generation Time', new Date().toISOString()],
+    ['', ''],
+    ['Metric', 'Definition & Accounting Treatment'],
+    ['Total Buy Value', 'Sum of (Quantity * Price) for all BUY executions on that date.'],
+    ['Total Sell Value', 'Sum of (Quantity * Price) for all SELL executions on that date.'],
+    ['Net Cash Flow', 'Total Sell Value minus Total Buy Value. This is the net cash balance transferred to/from trading ledger.'],
+    ['Realized P&L vs Cash Flow', 'CRITICAL DISTINCTION: Cash flow reflects execution cash exchange. If shares remain unclosed at end of day, cash flow is NOT realized profit/loss.'],
+    ['Position Matching Method', 'FIFO (First-In, First-Out) within the execution order of the day.'],
+    ['Open Position Treatment', 'When Net Qty != 0 or a sell exceeds intraday buys, Realized P&L is explicitly labeled as uncomputable without prior inventory cost basis.'],
+    ['Charges & Taxes', 'Reflects trade-level charges where explicitly provided in source report. Does not invent estimated taxes or brokerage.'],
+    ['Disclaimer', 'This application provides trade analysis and recordkeeping calculations. Not financial, tax, or investment advice. Verify all calculations before filing tax returns.'],
+  ];
+  const wsMethodology = XLSX.utils.aoa_to_sheet(methodologyData);
+  wsMethodology['!cols'] = [{ wch: 30 }, { wch: 70 }];
+  XLSX.utils.book_append_sheet(wb, wsMethodology, 'Methodology');
+
+  return wb;
+}
+
+/**
+ * Downloads the workbook in browser
+ */
+export function triggerWorkbookDownload(wb, filename) {
+  XLSX.writeFile(wb, filename, { compression: true });
+}

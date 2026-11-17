@@ -238,8 +238,100 @@ export function calculateTradeMetrics(trades) {
 
   const overallNetCashFlow = subMoney(totalSellValAll, totalBuyValAll);
 
+  // Group by Instrument / Scrip across all dates
+  const scripMap = new Map();
+  for (const s of stockSummaries) {
+    if (!scripMap.has(s.symbol)) {
+      scripMap.set(s.symbol, []);
+    }
+    scripMap.get(s.symbol).push(s);
+  }
+
+  const scripSummaries = [];
+  for (const [symbol, dateSummaries] of scripMap.entries()) {
+    // Sort date records strictly latest to oldest (descending date)
+    const sortedDateRecords = [...dateSummaries].sort((a, b) => b.tradeDate.localeCompare(a.tradeDate));
+
+    let totalBuyQty = 0;
+    let totalSellQty = 0;
+    let totalBuyVal = 0;
+    let totalSellVal = 0;
+    let buyCount = 0;
+    let sellCount = 0;
+    let charges = 0;
+    let exchange = sortedDateRecords[0]?.exchange || 'NSE';
+    let segment = sortedDateRecords[0]?.segment || '';
+    let hasOpen = false;
+    let totalRealizedPnL = 0;
+    let isPnLReliable = true;
+
+    for (const d of sortedDateRecords) {
+      totalBuyQty += d.totalBuyQty;
+      totalSellQty += d.totalSellQty;
+      totalBuyVal = addMoney(totalBuyVal, d.totalBuyVal);
+      totalSellVal = addMoney(totalSellVal, d.totalSellVal);
+      buyCount += d.buyCount;
+      sellCount += d.sellCount;
+      charges = addMoney(charges, d.charges || 0);
+
+      if (!d.isPnLReliable || d.realizedPnL === null) {
+        isPnLReliable = false;
+      } else {
+        totalRealizedPnL = addMoney(totalRealizedPnL, d.realizedPnL);
+      }
+
+      if (d.pnlStatus !== 'CLOSED') {
+        hasOpen = true;
+      }
+    }
+
+    const avgBuyPrice = totalBuyQty > 0 ? round(totalBuyVal / totalBuyQty, 2) : 0;
+    const avgSellPrice = totalSellQty > 0 ? round(totalSellVal / totalSellQty, 2) : 0;
+    const netQty = totalBuyQty - totalSellQty;
+    const netCashFlow = subMoney(totalSellVal, totalBuyVal);
+
+    let pnlStatus = 'CLOSED';
+    let pnlNotice = 'All trading day positions closed';
+    if (netQty > 0) {
+      pnlStatus = 'OPEN_LONG';
+      pnlNotice = `${netQty} share(s) remain open in inventory across dates`;
+    } else if (netQty < 0) {
+      pnlStatus = 'OPEN_SHORT_OR_DELIVERY';
+      pnlNotice = 'Net sell exceeds buys across records (Requires prior holding cost basis)';
+    } else if (hasOpen) {
+      pnlStatus = 'OPEN_SHORT_OR_DELIVERY';
+      pnlNotice = 'Contains day(s) requiring opening inventory or short delivery';
+    }
+
+    scripSummaries.push({
+      symbol,
+      exchange,
+      segment,
+      datesCount: sortedDateRecords.length,
+      latestDate: sortedDateRecords[0]?.tradeDate,
+      oldestDate: sortedDateRecords[sortedDateRecords.length - 1]?.tradeDate,
+      buyCount,
+      sellCount,
+      totalBuyQty,
+      totalSellQty,
+      totalBuyVal,
+      totalSellVal,
+      avgBuyPrice,
+      avgSellPrice,
+      netQty,
+      netCashFlow,
+      realizedPnL: isPnLReliable && pnlStatus === 'CLOSED' ? totalRealizedPnL : null,
+      isPnLReliable: isPnLReliable && pnlStatus === 'CLOSED',
+      pnlStatus,
+      pnlNotice,
+      charges,
+      dateRecords: sortedDateRecords,
+    });
+  }
+
   return {
     stockSummaries,
+    scripSummaries,
     dailySummaries,
     overallSummary: {
       dateCount: dateMap.size,

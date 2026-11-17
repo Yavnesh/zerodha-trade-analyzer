@@ -28,17 +28,22 @@ export const state = {
 
   // Aggregated calculation results
   stockSummaries: [],
+  scripSummaries: [],
   dailySummaries: [],
   overallSummary: null,
 
   // UI Filters & State
+  activeView: 'BY_DATE', // 'BY_DATE' | 'BY_SCRIP'
   selectedDate: 'ALL', // 'ALL' or specific 'YYYY-MM-DD'
   searchSymbol: '',
   sortColumn: 'tradeDate',
   sortDirection: 'asc', // 'asc' or 'desc'
+  scripSortColumn: 'symbol',
+  scripSortDirection: 'asc',
 
   // Modal / Accordion inspection
   expandedRows: new Set(), // Set of stockSummary id strings
+  expandedScrips: new Set(), // Set of scrip symbol strings
   inspectedStock: null, // { date, symbol, trades: [] }
   showHelpModal: false,
 };
@@ -72,13 +77,18 @@ export function resetState() {
   state.invalidRecords = [];
   state.warnings = [];
   state.stockSummaries = [];
+  state.scripSummaries = [];
   state.dailySummaries = [];
   state.overallSummary = null;
+  state.activeView = 'BY_DATE';
   state.selectedDate = 'ALL';
   state.searchSymbol = '';
   state.sortColumn = 'tradeDate';
   state.sortDirection = 'asc';
+  state.scripSortColumn = 'symbol';
+  state.scripSortDirection = 'asc';
   state.expandedRows = new Set();
+  state.expandedScrips = new Set();
   state.inspectedStock = null;
   state.showHelpModal = false;
   notify();

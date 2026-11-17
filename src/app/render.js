@@ -48,7 +48,11 @@ export function renderApp(container) {
       }
       main.appendChild(renderSummaryCards());
       main.appendChild(renderToolbar());
-      main.appendChild(renderStockTable());
+      if (state.activeView === 'BY_SCRIP') {
+        main.appendChild(renderScripConsolidatedTable());
+      } else {
+        main.appendChild(renderStockTable());
+      }
     }
   }
 
@@ -399,36 +403,72 @@ function renderToolbar() {
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar-section';
 
-  // Date Filter Selector
-  const dateGroup = document.createElement('div');
-  dateGroup.className = 'filter-group';
-  dateGroup.innerHTML = `<label style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Trading Date:</label>`;
-  
-  const dateSelect = document.createElement('select');
-  dateSelect.className = 'form-select';
-  dateSelect.id = 'date-filter-select';
-  
-  const optAll = document.createElement('option');
-  optAll.value = 'ALL';
-  optAll.textContent = `All Dates (${state.dailySummaries.length} days)`;
-  optAll.selected = state.selectedDate === 'ALL';
-  dateSelect.appendChild(optAll);
+  // Left Section: View Switcher Tabs
+  const leftGroup = document.createElement('div');
+  leftGroup.className = 'filter-group';
 
-  state.dailySummaries.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d.tradeDate;
-    opt.textContent = `${d.tradeDate} (${d.instrumentCount} stocks)`;
-    opt.selected = state.selectedDate === d.tradeDate;
-    dateSelect.appendChild(opt);
+  const viewSwitcher = document.createElement('div');
+  viewSwitcher.className = 'view-switcher';
+
+  const btnByDate = document.createElement('button');
+  btnByDate.className = `view-tab-btn ${state.activeView === 'BY_DATE' ? 'active' : ''}`;
+  btnByDate.innerHTML = `<span>📅</span> By Date & Scrip`;
+  btnByDate.title = 'View trades grouped by trading date and scrip';
+  btnByDate.addEventListener('click', () => {
+    if (state.activeView !== 'BY_DATE') {
+      state.activeView = 'BY_DATE';
+      notify();
+    }
   });
 
-  dateSelect.addEventListener('change', (e) => {
-    state.selectedDate = e.target.value;
-    notify();
+  const btnByScrip = document.createElement('button');
+  btnByScrip.className = `view-tab-btn ${state.activeView === 'BY_SCRIP' ? 'active' : ''}`;
+  btnByScrip.innerHTML = `<span>🏷️</span> By Scrip (Consolidated)`;
+  btnByScrip.title = 'View consolidated scrips list; click any scrip to see date breakdown (latest to oldest)';
+  btnByScrip.addEventListener('click', () => {
+    if (state.activeView !== 'BY_SCRIP') {
+      state.activeView = 'BY_SCRIP';
+      notify();
+    }
   });
-  dateGroup.appendChild(dateSelect);
 
-  // Search input
+  viewSwitcher.appendChild(btnByDate);
+  viewSwitcher.appendChild(btnByScrip);
+  leftGroup.appendChild(viewSwitcher);
+
+  // Date Filter Selector (only active in By Date view, disabled/hidden or contextual)
+  if (state.activeView === 'BY_DATE') {
+    const dateGroup = document.createElement('div');
+    dateGroup.className = 'filter-group';
+    dateGroup.innerHTML = `<label style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Trading Date:</label>`;
+    
+    const dateSelect = document.createElement('select');
+    dateSelect.className = 'form-select';
+    dateSelect.id = 'date-filter-select';
+    
+    const optAll = document.createElement('option');
+    optAll.value = 'ALL';
+    optAll.textContent = `All Dates (${state.dailySummaries.length} days)`;
+    optAll.selected = state.selectedDate === 'ALL';
+    dateSelect.appendChild(optAll);
+
+    state.dailySummaries.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.tradeDate;
+      opt.textContent = `${d.tradeDate} (${d.instrumentCount} stocks)`;
+      opt.selected = state.selectedDate === d.tradeDate;
+      dateSelect.appendChild(opt);
+    });
+
+    dateSelect.addEventListener('change', (e) => {
+      state.selectedDate = e.target.value;
+      notify();
+    });
+    dateGroup.appendChild(dateSelect);
+    leftGroup.appendChild(dateGroup);
+  }
+
+  // Right Section: Search Input
   const searchGroup = document.createElement('div');
   searchGroup.className = 'filter-group';
   const searchInput = document.createElement('input');
@@ -442,7 +482,7 @@ function renderToolbar() {
   });
   searchGroup.appendChild(searchInput);
 
-  toolbar.appendChild(dateGroup);
+  toolbar.appendChild(leftGroup);
   toolbar.appendChild(searchGroup);
   return toolbar;
 }
@@ -632,6 +672,221 @@ function renderStockTable() {
               `).join('')}
             </tbody>
           </table>
+        </div>
+      `;
+
+      detailTr.appendChild(detailTd);
+      tbody.appendChild(detailTr);
+    }
+  });
+
+  table.appendChild(tbody);
+  container.appendChild(table);
+  return container;
+}
+
+function renderScripConsolidatedTable() {
+  const container = document.createElement('div');
+  container.className = 'table-container';
+
+  const scrips = state.scripSummaries || [];
+
+  // Filter by searchSymbol
+  let filtered = scrips.filter(scrip => {
+    if (state.searchSymbol && !scrip.symbol.includes(state.searchSymbol)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Sort
+  const sortCol = state.scripSortColumn || 'symbol';
+  const sortDir = state.scripSortDirection || 'asc';
+
+  filtered.sort((a, b) => {
+    let vA = a[sortCol];
+    let vB = b[sortCol];
+    if (vA === null || vA === undefined) vA = '';
+    if (vB === null || vB === undefined) vB = '';
+    if (typeof vA === 'string') {
+      return sortDir === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+    }
+    return sortDir === 'asc' ? vA - vB : vB - vA;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+        No stocks match "${escapeHtml(state.searchSymbol)}".
+      </div>
+    `;
+    return container;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+
+  // Table Head
+  const columns = [
+    { key: 'symbol', label: 'Symbol', sortable: true },
+    { key: 'exchange', label: 'Exch', sortable: false },
+    { key: 'datesCount', label: 'Trading Days', sortable: true, isNum: true },
+    { key: 'buyCount', label: 'Buys', sortable: true, isNum: true },
+    { key: 'sellCount', label: 'Sells', sortable: true, isNum: true },
+    { key: 'totalBuyQty', label: 'Buy Qty', sortable: true, isNum: true },
+    { key: 'totalSellQty', label: 'Sell Qty', sortable: true, isNum: true },
+    { key: 'totalBuyVal', label: 'Total Buy Value', sortable: true, isNum: true },
+    { key: 'totalSellVal', label: 'Total Sell Value', sortable: true, isNum: true },
+    { key: 'avgBuyPrice', label: 'Avg Buy', sortable: true, isNum: true },
+    { key: 'avgSellPrice', label: 'Avg Sell', sortable: true, isNum: true },
+    { key: 'netQty', label: 'Net Qty', sortable: true, isNum: true },
+    { key: 'netCashFlow', label: 'Net Cash Flow', sortable: true, isNum: true },
+    { key: 'pnlStatus', label: 'Status', sortable: false },
+  ];
+
+  const thead = document.createElement('thead');
+  const trHead = document.createElement('tr');
+  columns.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col.label;
+    if (col.isNum) th.className = 'text-num';
+    if (col.sortable) {
+      th.classList.add('sortable');
+      if (state.scripSortColumn === col.key) {
+        th.textContent += state.scripSortDirection === 'asc' ? ' ↑' : ' ↓';
+      }
+      th.addEventListener('click', () => {
+        if (state.scripSortColumn === col.key) {
+          state.scripSortDirection = state.scripSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.scripSortColumn = col.key;
+          state.scripSortDirection = 'asc';
+        }
+        notify();
+      });
+    }
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
+  table.appendChild(thead);
+
+  // Table Body
+  const tbody = document.createElement('tbody');
+  filtered.forEach(scrip => {
+    const tr = document.createElement('tr');
+    tr.className = 'expandable-row';
+    const isExpanded = state.expandedScrips.has(scrip.symbol);
+    if (isExpanded) {
+      tr.classList.add('is-expanded');
+    }
+
+    const netCashClass = scrip.netCashFlow > 0 ? 'pnl-pos' : (scrip.netCashFlow < 0 ? 'pnl-neg' : 'pnl-zero');
+
+    let statusBadge = '';
+    if (scrip.pnlStatus === 'CLOSED') {
+      statusBadge = `<span class="badge badge-success">Closed</span>`;
+    } else if (scrip.pnlStatus === 'OPEN_LONG') {
+      statusBadge = `<span class="badge badge-warning" title="${escapeHtml(scrip.pnlNotice)}">Open Long (${scrip.netQty})</span>`;
+    } else {
+      statusBadge = `<span class="badge badge-danger" title="${escapeHtml(scrip.pnlNotice)}">Prior Holding</span>`;
+    }
+
+    const caret = isExpanded ? '▾' : '▸';
+    const dateRangeLabel = scrip.datesCount === 1 
+      ? scrip.latestDate 
+      : `${scrip.datesCount} days (${scrip.oldestDate} → ${scrip.latestDate})`;
+
+    tr.innerHTML = `
+      <td><span class="row-expand-icon">${caret}</span> <strong>${scrip.symbol}</strong></td>
+      <td><span class="badge badge-neutral">${scrip.exchange}</span></td>
+      <td class="text-num">${dateRangeLabel}</td>
+      <td class="text-num">${scrip.buyCount}</td>
+      <td class="text-num">${scrip.sellCount}</td>
+      <td class="text-num">${formatQuantity(scrip.totalBuyQty)}</td>
+      <td class="text-num">${formatQuantity(scrip.totalSellQty)}</td>
+      <td class="text-num">${formatINR(scrip.totalBuyVal)}</td>
+      <td class="text-num">${formatINR(scrip.totalSellVal)}</td>
+      <td class="text-num">${scrip.avgBuyPrice ? formatINR(scrip.avgBuyPrice) : '—'}</td>
+      <td class="text-num">${scrip.avgSellPrice ? formatINR(scrip.avgSellPrice) : '—'}</td>
+      <td class="text-num">${formatQuantity(scrip.netQty)}</td>
+      <td class="text-num ${netCashClass}">${formatINR(scrip.netCashFlow, true)}</td>
+      <td>${statusBadge}</td>
+    `;
+
+    tr.addEventListener('click', () => {
+      if (state.expandedScrips.has(scrip.symbol)) {
+        state.expandedScrips.delete(scrip.symbol);
+      } else {
+        state.expandedScrips.add(scrip.symbol);
+      }
+      notify();
+    });
+
+    tbody.appendChild(tr);
+
+    // If expanded, render date breakdown ordered from latest to oldest
+    if (isExpanded) {
+      const detailTr = document.createElement('tr');
+      detailTr.className = 'detail-row';
+
+      const detailTd = document.createElement('td');
+      detailTd.colSpan = columns.length;
+
+      detailTd.innerHTML = `
+        <div class="inline-trade-details">
+          <div class="inline-details-header">
+            <span class="inline-details-title">Date-wise Trading History for <strong>${scrip.symbol}</strong> (Sorted Latest to Oldest)</span>
+            <span class="inline-details-note">${scrip.datesCount} trading date${scrip.datesCount === 1 ? '' : 's'} • Total Net Cash Flow: <strong class="${netCashClass}">${formatINR(scrip.netCashFlow, true)}</strong></span>
+          </div>
+
+          ${scrip.dateRecords.map(dRecord => {
+            const dayTrades = state.validTrades.filter(t => dRecord.tradeIds.includes(t.id));
+            const dayCashClass = dRecord.netCashFlow > 0 ? 'pnl-pos' : (dRecord.netCashFlow < 0 ? 'pnl-neg' : 'pnl-zero');
+
+            return `
+              <div class="scrip-date-block">
+                <div class="scrip-date-summary-header">
+                  <span class="scrip-date-pill">📅 ${dRecord.tradeDate}</span>
+                  <div class="scrip-date-metrics">
+                    <span>Buys: <strong>${dRecord.buyCount}</strong> (${formatQuantity(dRecord.totalBuyQty)} shares @ ${formatINR(dRecord.totalBuyVal)})</span>
+                    <span>Sells: <strong>${dRecord.sellCount}</strong> (${formatQuantity(dRecord.totalSellQty)} shares @ ${formatINR(dRecord.totalSellVal)})</span>
+                    <span>Net Qty: <strong>${formatQuantity(dRecord.netQty)}</strong></span>
+                    <span>Day Cash Flow: <strong class="${dayCashClass}">${formatINR(dRecord.netCashFlow, true)}</strong></span>
+                    <span>${dRecord.isPnLReliable && dRecord.realizedPnL !== null ? `P&L: <strong class="${dRecord.realizedPnL >= 0 ? 'pnl-pos' : 'pnl-neg'}">${formatINR(dRecord.realizedPnL, true)}</strong>` : `<span class="badge badge-neutral">${dRecord.pnlStatus}</span>`}</span>
+                  </div>
+                </div>
+
+                <table class="sub-data-table">
+                  <thead>
+                    <tr>
+                      <th>Row #</th>
+                      <th>Side</th>
+                      <th class="text-num">Quantity</th>
+                      <th class="text-num">Execution Price (₹)</th>
+                      <th class="col-trade-val">Trade Value (₹)</th>
+                      <th class="col-order-id">Order ID</th>
+                      <th class="col-trade-id">Trade ID</th>
+                      <th class="text-num">Charges</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${dayTrades.map(t => `
+                      <tr>
+                        <td>Row ${t.sourceRowNum}</td>
+                        <td><span class="badge ${t.side === 'BUY' ? 'badge-success' : 'badge-danger'}">${t.side}</span></td>
+                        <td class="text-num">${formatQuantity(t.quantity)}</td>
+                        <td class="text-num">${formatINR(t.price)}</td>
+                        <td class="col-trade-val">${formatINR(t.tradeValue)}</td>
+                        <td class="col-order-id">${t.orderId || '—'}</td>
+                        <td class="col-trade-id">${t.tradeId || '—'}</td>
+                        <td class="text-num">${t.charges ? formatINR(t.charges) : '₹0.00'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
 
@@ -890,6 +1145,7 @@ function renderColumnMappingScreen() {
 
     const metrics = calculateTradeMetrics(validTrades);
     state.stockSummaries = metrics.stockSummaries;
+    state.scripSummaries = metrics.scripSummaries || [];
     state.dailySummaries = metrics.dailySummaries;
     state.overallSummary = metrics.overallSummary;
 

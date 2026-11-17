@@ -121,4 +121,30 @@ describe('Financial Calculations Scenarios', () => {
     expect(s.pnlStatus).toBe('OPEN_SHORT_OR_DELIVERY');
     expect(s.isPnLReliable).toBe(false);
   });
+
+  // Scenario G: Scrip-centric consolidated summary with latest-to-oldest date order
+  it('Scenario G: Consolidated scrip summary with date records ordered latest to oldest', () => {
+    const trades = [
+      { id: '1', tradeDate: '2026-10-09', symbol: 'DELTACORP', side: 'BUY', quantity: 50, price: 80, tradeValue: 4000, sourceRowNum: 2 },
+      { id: '2', tradeDate: '2026-10-12', symbol: 'DELTACORP', side: 'BUY', quantity: 25, price: 82, tradeValue: 2050, sourceRowNum: 3 },
+      { id: '3', tradeDate: '2026-10-16', symbol: 'DELTACORP', side: 'BUY', quantity: 20, price: 85, tradeValue: 1700, sourceRowNum: 4 },
+      { id: '4', tradeDate: '2026-10-16', symbol: 'SUBEXLTD', side: 'BUY', quantity: 200, price: 20, tradeValue: 4000, sourceRowNum: 5 },
+    ];
+    const { scripSummaries } = calculateTradeMetrics(trades);
+    expect(scripSummaries).toHaveLength(2);
+
+    const delta = scripSummaries.find(s => s.symbol === 'DELTACORP');
+    expect(delta).toBeDefined();
+    expect(delta.datesCount).toBe(3);
+    expect(delta.totalBuyQty).toBe(95); // 50 + 25 + 20
+    expect(delta.totalBuyVal).toBe(7750); // 4000 + 2050 + 1700
+    expect(delta.netQty).toBe(95);
+    expect(delta.netCashFlow).toBe(-7750);
+
+    // Verify date breakdown order is strictly latest to oldest (2026-10-16 -> 2026-10-12 -> 2026-10-09)
+    expect(delta.dateRecords).toHaveLength(3);
+    expect(delta.dateRecords[0].tradeDate).toBe('2026-10-16');
+    expect(delta.dateRecords[1].tradeDate).toBe('2026-10-12');
+    expect(delta.dateRecords[2].tradeDate).toBe('2026-10-09');
+  });
 });

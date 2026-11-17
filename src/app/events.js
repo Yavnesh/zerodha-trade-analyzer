@@ -46,6 +46,7 @@ export function setupEventHandlers() {
 
         const metrics = calculateTradeMetrics(validTrades);
         state.stockSummaries = metrics.stockSummaries;
+        state.scripSummaries = metrics.scripSummaries || [];
         state.dailySummaries = metrics.dailySummaries;
         state.overallSummary = metrics.overallSummary;
       }

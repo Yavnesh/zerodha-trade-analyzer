@@ -156,6 +156,89 @@
   border-radius: var(--radius-md);
 }
 
+/* View Switcher / Tabs */
+.view-switcher {
+  display: inline-flex;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.view-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.view-tab-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-hover);
+}
+
+.view-tab-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+/* Date accordion block in Scrip view */
+.scrip-date-block {
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.scrip-date-block:last-child {
+  margin-bottom: 0;
+}
+
+.scrip-date-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+}
+
+.scrip-date-pill {
+  font-weight: 700;
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.scrip-date-metrics {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.scrip-date-metrics strong {
+  color: var(--text-main);
+}
+
 .filter-group {
   display: flex;
   align-items: center;
